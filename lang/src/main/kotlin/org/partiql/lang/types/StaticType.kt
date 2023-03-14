@@ -67,7 +67,10 @@ sealed class StaticType {
         @JvmField val SEXP: SexpType = SexpType()
         @JvmField val STRUCT: StructType = StructType()
         @JvmField val BAG: BagType = BagType()
-        @JvmField val SCHEMA: SchemaType = SchemaType()
+        @JvmField val ANY_SCHEMA: SchemaType = SchemaType.AnySchema()
+        @JvmField val TUPLE_SCHEMA: SchemaType = SchemaType.TupleSchema()
+        @JvmField val COLLECTION_SCHEMA: SchemaType = SchemaType.CollectionSchema()
+
 
         @JvmStatic
         fun fromExprValueType(exprValueType: ExprValueType): StaticType =
@@ -124,7 +127,8 @@ sealed class StaticType {
             SEXP,
             STRUCT,
             BAG,
-            SCHEMA,
+            TUPLE_SCHEMA,
+            COLLECTION_SCHEMA
         )
     }
 
@@ -208,7 +212,9 @@ sealed class StaticType {
             is AnyOfType -> copy(metas = metas)
             is DateType -> copy(metas = metas)
             is TimeType -> copy(metas = metas)
-            is SchemaType -> copy(metas = metas)
+            is SchemaType.AnySchema -> copy(metas = metas)
+            is SchemaType.TupleSchema -> copy(metas = metas)
+            is SchemaType.CollectionSchema -> copy(metas = metas)
         }
 
     /**
@@ -615,24 +621,50 @@ data class SexpType(
 
 // Schema type
 
-data class SchemaType(
-    val isOpen: Boolean = false,
-    val attrs: List<SchemaAttr> = listOf(),
-    val constraint: List<SchemaConstraint> = listOf(SchemaConstraint.NoDuplicateAttr),
-    val orderedness: SchemaOrderedness = SchemaOrderedness.Ordered,
-    override val metas: Map<String, Any> = mapOf()
-) : SingleType() {
-    override val runtimeType: ExprValueType
-        get() = TODO()
+sealed class SchemaType : SingleType() {
+    data class AnySchema(override val metas: Map<String, kotlin.Any> = mapOf()) : SchemaType() {
+        override val runtimeType: ExprValueType
+            get() = TODO()
 
-    override fun flatten(): StaticType = this
+        override fun flatten(): StaticType = this
 
-    override val allTypes: List<StaticType>
-        get() = listOf(this)
-
-    override fun toString(): String {
-        TODO()
+        override val allTypes: List<StaticType>
+            get() = listOf(this)
     }
+
+    data class TupleSchema(
+        val isOpen: Boolean = false,
+        val elements: List<SchemaAttr> = listOf(),
+        val constraint: List<TupleSchemaConstraint> = listOf(TupleSchemaConstraint.NoDuplicateAttr),
+        val orderedness: SchemaOrderedness = SchemaOrderedness.Ordered,
+        override val metas: Map<String, kotlin.Any> = mapOf()
+        ) : SchemaType() {
+            override val runtimeType: ExprValueType
+            get() = ExprValueType.BAG
+
+            override fun flatten(): StaticType = this
+
+            override val allTypes: List<StaticType>
+            get() = listOf(this)
+            override fun toString(): String = "tuple_schema()"
+    }
+    data class CollectionSchema(
+        val isOpen: Boolean = false,
+        val elements: List<CollectionType> = listOf(),
+        override val metas: Map<String, kotlin.Any> = mapOf()
+    ) : SchemaType() {
+        override val runtimeType: ExprValueType
+            get() = ExprValueType.BAG
+
+        override fun flatten(): StaticType = this
+
+        override val allTypes: List<StaticType>
+            get() = listOf(this)
+        override fun toString(): String = "collection_schema()"
+    }
+
+    // data class ScalarSchemaType() : SchemaType
+    // data class GraphSchemaType() : SchemaType
 }
 
 data class SchemaAttr(
@@ -640,13 +672,13 @@ data class SchemaAttr(
     val type: StaticType
 )
 
-sealed class SchemaConstraint {
-    object NoConstraint : SchemaConstraint()
-    object NoDuplicateAttr : SchemaConstraint()
-    data class PrimaryKey(val attrs: List<String>) : SchemaConstraint()
-    data class Unique(val attrs: List<String>) : SchemaConstraint()
-    data class NotNull(val attrs: List<String>) : SchemaConstraint()
-    data class NotMissing(val attrs: List<String>) : SchemaConstraint()
+sealed class TupleSchemaConstraint {
+    object NoDuplicateAttr : TupleSchemaConstraint()
+    data class PrimaryKey(val attrs: List<String>) : TupleSchemaConstraint()
+    data class PartitionKey(val attrs: List<String>) : TupleSchemaConstraint()
+    data class Unique(val attrs: List<String>) : TupleSchemaConstraint()
+    data class NotNull(val attrs: List<String>) : TupleSchemaConstraint()
+    data class NotMissing(val attrs: List<String>) : TupleSchemaConstraint()
 }
 
 enum class SchemaOrderedness {

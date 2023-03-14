@@ -55,7 +55,9 @@ private fun SingleType.getExample() = when (this) {
     is SexpType -> "sexp()"
     is StructType -> "{}"
     is BagType -> "<<>>"
-    is SchemaType -> "schema {}"
+    is SchemaType.AnySchema -> "schema_any"
+    is SchemaType.TupleSchema -> "schema_tuple"
+    is SchemaType.CollectionSchema -> "schema_collection"
     is MissingType,
     is NullType -> throw Exception("NULL or MISSING should be the problem of permissive mode, not type checking.")
 }

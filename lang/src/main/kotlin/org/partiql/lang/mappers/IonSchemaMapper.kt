@@ -556,5 +556,7 @@ fun StaticType.getBaseTypeName(): String = when (this) {
         false -> "time"
         true -> "time_with_time_zone"
     }
-    is SchemaType -> "schema"
+    is SchemaType.AnySchema -> "schema_any"
+    is SchemaType.TupleSchema -> "schema_tuple"
+    is SchemaType.CollectionSchema -> "schema_collection"
 }
